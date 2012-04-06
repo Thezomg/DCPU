@@ -65,19 +65,12 @@ for nexp, h in number_exp:
 	operand_exp.append((0x1f, '(%s)' % nexp, h))
 
 #0x20-0x3F: integer value (offset 0x20)
-#Handled in 0x1f handler
-
-class LabelRef:
-	def __init__(self, name):
-		self.name = name
-
-class Label:
-	def __init__(self, name):
-		self.name = name
+#           handled in 0x1f handler
 
 def dcpu_compile(input, output):
 	labels = {}
 	label_swap = []
+	input_line = 1
 	output_position = 0
 	for line in input:
 		realline = line
@@ -108,7 +101,7 @@ def dcpu_compile(input, output):
 			operands[0] = extended_opcodes[opcode_name]
 			operand_i = 1
 		else:
-			print "Unknown opcode on line %d" % (i+1)
+			print "Unknown opcode on line %d" % (input_line)
 			sys.exit(1)
 	
 		line = line[3:].lstrip()
@@ -118,41 +111,46 @@ def dcpu_compile(input, output):
 			matched = False
 			for ov, oexp, oh in operand_exp:
 				m = re.match('^'+oexp+'[, ]*(.*)', line)
-				if m:
-					matched = True
-					groups = list(m.groups())
+				if not m:
+					continue
 				
-					line = groups.pop(-1)
-					operands[operand_i] = ov
+				matched = True
+				groups = list(m.groups())
 				
-					#Numerical expressions require processing
-				
-					if len(groups)>1:
-						is_label, data = oh(groups[0]) #Parse the numerical value
-						if is_label:
-							label_swap.append((output_position + len(words) + 1, data))
-							data = 0
-						if ov in range(0x10, 0x18):
-							words.append(data)
-						elif ov == 0x1e:
-							words.append(data)
-						elif ov == 0x1f: #Pure numerical value
-							#If it fits in 5 bits, pack it into the operand
-							if data < 32 and not is_label:
-								operands[operand_i] = 0x20 + data
-							#Otherwise write another word
-							else:
-								words.append(data)
+				line = groups.pop(-1)
+				operands[operand_i] = ov
+			
+				if len(groups)<2:
 					break
+				
+				#If we've extra groups left, deal with em
+				
+				is_label, data = oh(groups[0]) #Parse the numerical value
+				if is_label:
+					label_swap.append((output_position + len(words)*2, data))
+					data = 0
+				if ov in range(0x10, 0x18):
+					words.append(data)
+				elif ov == 0x1e:
+					words.append(data)
+				elif ov == 0x1f: #Pure numerical value
+					#If it fits in 5 bits, pack it into the operand
+					if data < 32 and not is_label:
+						operands[operand_i] = 0x20 + data
+					#Otherwise write another word
+					else:
+						words.append(data)
+				break
 			if not matched:
-				print "Couldn't parse operand on line %d:" % (i+1)
+				print "Couldn't parse operand on line %d:" % (input_line)
 				print line
 				sys.exit(1)
+			
 			operand_i += 1
 	
 		line = line.strip()
 		if line != '':
-			print "Extraneous data on line %d: " % (i+1)
+			print "Extraneous data on line %d: " % (input_line)
 			print line
 			sys.exit(1)
 	
@@ -166,9 +164,8 @@ def dcpu_compile(input, output):
 			output.write(chr(w   >> 8))
 			output.write(chr(w & 0xFF))
 		
-		
 		output_position += len(words)*2
-
+		input_line += 1
 		
 	#Hotswap labels in
 	for position, label in label_swap:
