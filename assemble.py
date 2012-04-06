@@ -95,6 +95,9 @@ def dcpu_compile(input, output):
 			labels[m.group(1)] = output_position/2
 			line = line[m.end():].lstrip()
 	
+		if not line:
+			continue
+		
 		#Match opcode
 		opcode_name = line[:3]
 		if opcode_name in opcodes:
