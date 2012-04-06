@@ -67,6 +67,9 @@ for nexp, h in number_exp:
 #0x20-0x3F: integer value (offset 0x20)
 #           handled in 0x1f handler
 
+def word_to_str(w):
+	return chr(w & 0xFF) + chr(w   >> 8)
+
 def dcpu_compile(input, output):
 	labels = {}
 	label_swap = []
@@ -161,8 +164,7 @@ def dcpu_compile(input, output):
 
 		#Write data!
 		for w in words:
-			output.write(chr(w   >> 8))
-			output.write(chr(w & 0xFF))
+			output.write(word_to_str(w))
 		
 		output_position += len(words)*2
 		input_line += 1
@@ -172,8 +174,7 @@ def dcpu_compile(input, output):
 		output.seek(0)
 		output.seek(position)
 		label_pos = labels[label]
-		output.write(chr(label_pos   >> 8))
-		output.write(chr(label_pos & 0xFF))
+		output.write(word_to_str(label_pos))
 
 if __name__ == '__main__':
 	if len(sys.argv) != 3:
